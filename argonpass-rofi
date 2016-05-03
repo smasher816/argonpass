@@ -1,0 +1,69 @@
+#!/bin/bash
+lastsite=""
+
+username() {
+	xdotool type --clearmodifiers "$(argonpass -u $1)"
+}
+
+password() {
+	pass="$(rofi -dmenu -p "Password: " -password <&-)"
+	if [ $? -eq 0 ]; then
+		xdotool type "$(argonpass $1 <<< $pass)"
+	fi
+}
+
+site() {
+	url="$(argonpass -w $1)"
+	if [ -n "$url" ]; then
+		xdg-open "http://$url"
+	fi
+}
+
+info() {
+	rofi -e "$(argonpass -i $1)"
+}
+
+delete() {
+	argonpass -d $1
+}
+
+change() {
+	argonpass -c $1
+	password $1
+}
+
+new() {
+	site="$(rofi -dmenu -p "Name: " <&-)" && \
+	url="$(rofi -dmenu -p "URL: " <&-)" && \
+	user="$(rofi -dmenu -p "Username: " <&-)" && \
+	charset="$(rofi -dmenu -p "Charset: " <&-)" && \
+	length="$(rofi -dmenu -p "Length: " <&-)" && \
+	echo -e "${url}\n${user}\n${length}\n${charset}" | argonpass -n $site
+	lastsite="$site"
+}
+
+while true; do
+	help="<b>Ctrl+u:</b> Type Username,   <b>Ctrl+o:</b> Open Website, <b>Ctrl+i:</b> View Info
+<b>Ctrl+c:</b> Change password, <b>Ctrl+n:</b> Add new site, <b>Ctrl+d:</b> Delete site"
+	site=$(argonpass -l | rofi -dmenu -p "Site: " -mesg "$help" -select "$lastsite" \
+		-kb-custom-1 "Control-u" \
+		-kb-custom-2 "Control-o" \
+		-kb-custom-3 "Control-i" \
+		-kb-custom-4 "Control-c" \
+		-kb-custom-5 "Control-n" \
+		-kb-custom-6 "Control-d"
+	)
+	status="$?"
+	lastsite="$site"
+
+	case $status in
+		1) exit 1;;
+		10) username $site;;
+		11) site $site;;
+		12) info $site;;
+		13) change $site;;
+		14) new;;
+		15) delete $site;;
+		*) password $site;;
+	esac
+done

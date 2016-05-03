@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+
+#https://pypi.python.org/pypi/argon2_cffi/
+import argon2
+import string
+import math
+import argparse
+import sys
+import getpass
+import configparser
+import os
+
+config_file = "~/.argonpass"
+config = configparser.ConfigParser({
+    "website": "",
+    "username": "",
+
+    "length": "16",
+    "charset": "luns",
+    "revision": "",
+
+    "time": "16",
+    "memory": "1024",
+    "threads": "16"
+})
+
+def strlen2bytecount(charcount, length):
+    bytes = int(math.log(math.pow(charcount,length),2)/8)
+    return bytes
+
+def bin2ascii(chars, x):
+    sum = 0
+    for i in range(len(x)):
+        sum <<= 8
+        sum += x[i]
+
+    ret = ""
+    while sum > 0:
+        z = sum % len(chars)
+        ret += chars[z]
+        sum //= len(chars)
+    return ret;
+
+class Site:
+    def __init__(self, section):
+        self.name = section
+        self.url = config.get(section, "website")
+        self.username = config.get(section, "username")
+        self.length = config.getint(section, "length")
+        self.charset = config.get(section, "charset")
+        self.revision = config.get(section, "revision")
+        self.time = config.getint(section, "time")
+        self.memory = config.getint(section, "memory")
+        self.threads = config.getint(section, "threads")
+
+    def hash(self, password, salt, byteCount):
+        return argon2.hash_password_raw(
+            bytes(password, "utf-8"),
+            bytes(salt, "utf-8"),
+            hash_len=byteCount,
+            time_cost=self.time,
+            memory_cost=self.memory,
+            parallelism=self.threads,
+            type=argon2.Type.I
+        )
+
+
+    def getPassword(self, masterPassword):
+        chars = "";
+        if "l" in self.charset:
+            chars += string.ascii_lowercase
+        if "u" in self.charset:
+            chars += string.ascii_uppercase
+        if "n" in self.charset:
+            chars += string.digits
+        if "s" in self.charset:
+            chars += string.punctuation+" "
+
+        identity = self.name+self.username+self.revision
+        byteCount = strlen2bytecount(len(chars), self.length)
+        return bin2ascii(chars, self.hash(masterPassword, identity, byteCount))
+
+def inputOption(section, option):
+    value = input(option+" ("+config.defaults()[option]+"): ")
+    if value:
+        config.set(section, option, value)
+
+def createSite(name):
+    config.add_section(name)
+    inputOption(name, "website")
+    inputOption(name, "username")
+    inputOption(name, "charset")
+    inputOption(name, "length")
+    with open(config_file, 'w') as file:
+        config.write(file)
+
+def removeSite(name):
+    config.remove_section(name)
+    with open(config_file, 'w') as file:
+        config.write(file)
+
+def updateSite(name):
+    try:
+        revision = config.getint(name, "revision")
+    except:
+        revision = 0
+    config.set(name, "revision", str(revision+1))
+    with open(config_file, 'w') as file:
+        config.write(file)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("site", nargs='?')
+    parser.add_argument("--config", default=os.path.expanduser(config_file))
+    parser.add_argument("-l", "--list", action="store_true")
+    parser.add_argument("-u", "--user")
+    parser.add_argument("-w", "--website")
+    parser.add_argument("-i", "--info")
+    parser.add_argument("-n", "--new")
+    parser.add_argument("-d", "--delete")
+    parser.add_argument("-c", "--change")
+
+    if len(sys.argv)==1:
+        parser.print_usage(sys.stderr)
+        sys.exit(1)
+
+    args = parser.parse_args()
+    config_file = args.config;
+    config.read(config_file)
+
+    if args.list:
+        for section in config.sections():
+            print(section)
+        sys.exit(0)
+
+    if args.user:
+        site = Site(args.user)
+        print(site.username)
+        sys.exit(0)
+
+    if args.website:
+        site = Site(args.website)
+        print(site.url)
+        sys.exit(0)
+
+    if args.new:
+        createSite(args.new)
+        sys.exit(0)
+
+    if args.delete:
+        removeSite(args.delete)
+        sys.exit(0)
+
+    if args.change:
+        updateSite(args.change)
+        sys.exit(0)
+
+    if args.info:
+        site = Site(args.info)
+        if site.url:
+            print("Website: "+site.url)
+        print("Username: "+site.username)
+        print("")
+        print("Length: "+str(site.length))
+        print("Charset: "+str(site.charset))
+        if site.revision:
+            print("Revision: "+site.revision)
+        print("")
+        print("Time: "+str(site.time))
+        print("Memory: "+str(site.memory))
+        print("Threads: "+str(site.threads))
+        sys.exit(0)
+
+    if config.has_section(args.site):
+        if sys.stdin.isatty():
+            password = getpass.getpass("Enter your master password: ")
+        else:
+            password = sys.stdin.readline().rstrip("\r\n")
+        site = Site(args.site)
+        print(site.getPassword(password))
+    else:
+        print("Site not found", file=sys.stderr)
