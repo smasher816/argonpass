@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     if config.has_section(args.site):
         if sys.stdin.isatty():
-            password = getpass.getpass("Enter your master password: ")
+            password = getpass.getpass("Enter your master password: ", sys.stderr)
         else:
             password = sys.stdin.readline().rstrip("\r\n")
         site = Site(args.site)
