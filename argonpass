@@ -10,6 +10,8 @@ import getpass
 import configparser
 import os
 
+ARGON2_VERSION = argon2.__version__
+
 config_file = "~/.argonpass"
 config = configparser.ConfigParser({
     "website": "",
@@ -22,7 +24,8 @@ config = configparser.ConfigParser({
 
     "time": "16",
     "memory": "1024",
-    "threads": "16"
+    "threads": "16",
+    "argon2version": "",
 })
 
 def strlen2bytecount(charcount, length):
@@ -54,6 +57,11 @@ class Site:
         self.time = config.getint(section, "time")
         self.memory = config.getint(section, "memory")
         self.threads = config.getint(section, "threads")
+        self.argon2version = config.get(section, "argon2version")
+
+        if self.argon2version and self.argon2version != ARGON2_VERSION:
+            print("WARNING: argon2 version differs. Passwords may be incorrect (have {}, want {})"
+                  .format(ARGON2_VERSION, self.argon2version), file=sys.stderr)
 
     def hash(self, password, salt, byteCount):
         return argon2.hash_password_raw(
@@ -180,11 +188,11 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if config.has_section(args.site):
+        site = Site(args.site)
         if sys.stdin.isatty():
             password = getpass.getpass("Enter your master password: ", sys.stderr)
         else:
             password = sys.stdin.readline().rstrip("\r\n")
-        site = Site(args.site)
         print(site.getPassword(password))
     else:
         print("Site not found", file=sys.stderr)
