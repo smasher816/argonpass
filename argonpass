@@ -17,6 +17,7 @@ config = configparser.ConfigParser({
 
     "length": "16",
     "charset": "luns",
+    "symbols": "",
     "revision": "",
 
     "time": "16",
@@ -48,6 +49,7 @@ class Site:
         self.username = config.get(section, "username")
         self.length = config.getint(section, "length")
         self.charset = config.get(section, "charset")
+        self.symbols = config.get(section, "symbols")
         self.revision = config.get(section, "revision")
         self.time = config.getint(section, "time")
         self.memory = config.getint(section, "memory")
@@ -73,8 +75,14 @@ class Site:
             chars += string.ascii_uppercase
         if "n" in self.charset:
             chars += string.digits
-        if "s" in self.charset:
-            chars += string.punctuation+" "
+        if self.symbols:
+            chars += self.symbols
+        else:
+            if "s" in self.charset:
+                chars += string.punctuation+" "
+            if "S" in self.charset:
+                chars += "!@#$%^&*()-=_+"
+
 
         identity = self.name+self.username+self.revision
         byteCount = strlen2bytecount(len(chars), self.length)
