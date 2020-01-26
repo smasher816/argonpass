@@ -116,8 +116,19 @@ interactive processes).
 
 You must have python 3 installed.
 
-You also need argon2_cffi from the python package index. You can use pip for
-this. `pip install argon2_cffi`
+You also need argon2_cffi and prmpt-toolkit from the python package index.
+You can use pip for this.
+
+```
+pip install argon2_cffi prompt-toolkit
+```
+
+You can also use Pipenv instead
+
+```
+pipenv install
+pipenv run ./argonpass <args>
+```
 
 If you would like to use the provided linux frontend then you should install
 rofi (https://davedavenport.github.io/rofi).

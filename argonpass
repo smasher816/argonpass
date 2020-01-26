@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+from __future__ import unicode_literals
+
 #https://pypi.python.org/pypi/argon2_cffi/
 import argon2
 import string
@@ -9,6 +11,12 @@ import sys
 import getpass
 import configparser
 import os
+
+from prompt_toolkit import PromptSession, prompt
+from prompt_toolkit.completion import FuzzyWordCompleter
+from prompt_toolkit.validation import Validator
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 ARGON2_VERSION = argon2.__version__
 
@@ -136,10 +144,6 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--delete")
     parser.add_argument("-c", "--change")
 
-    if len(sys.argv)==1:
-        parser.print_usage(sys.stderr)
-        sys.exit(1)
-
     args = parser.parse_args()
     config_file = args.config;
     config.read(config_file)
@@ -187,10 +191,31 @@ if __name__ == "__main__":
         print("Threads: "+str(site.threads))
         sys.exit(0)
 
+    if not args.site:
+        if sys.stdin.isatty():
+            histfile = os.getenv('ARGONHIST')
+            if histfile:
+                session = PromptSession(history=FileHistory(histfile))
+            else:
+                session = PromptSession()
+
+            def validate_site(text):
+                return (text in config.sections())
+
+            site_completer = FuzzyWordCompleter(config.sections)
+            site_validator = Validator.from_callable(validate_site, error_message="Site not found", move_cursor_to_end=True)
+            args.site = session.prompt("Site: ",
+                               auto_suggest=AutoSuggestFromHistory(),
+                               completer=site_completer, complete_while_typing=True,
+                               validator=site_validator, validate_while_typing=False)
+        else:
+            parser.print_usage(sys.stderr)
+            sys.exit(1)
+
     if config.has_section(args.site):
         site = Site(args.site)
         if sys.stdin.isatty():
-            password = getpass.getpass("Enter your master password: ", sys.stderr)
+            password = prompt("Enter your master password: ", is_password=True)
         else:
             password = sys.stdin.readline().rstrip("\r\n")
         print(site.getPassword(password))

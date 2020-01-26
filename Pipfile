@@ -7,6 +7,7 @@ verify_ssl = true
 
 [packages]
 argon2-cffi = "==16.0.0"
+prompt-toolkit = "==3.0.2"
 
 [requires]
 python_version = "3.8"
