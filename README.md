@@ -121,3 +121,9 @@ this. `pip install argon2_cffi`
 
 If you would like to use the provided linux frontend then you should install
 rofi (https://davedavenport.github.io/rofi).
+
+A sample config is provided, you can copy it to your home directory
+
+```
+cp ./config ~/.argonpass
+```

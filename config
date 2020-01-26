@@ -1,0 +1,23 @@
+[DEFAULT]
+
+username = foobar
+charset = lunS
+length = 16
+revision = 
+memory = 1024
+website = 
+threads = 16
+time = 16
+mem = 1024
+argon2version = 16.0.0
+
+[bank]
+length = 100
+
+[work]
+username = xxxxx
+revision = 5
+
+[equifax]
+website = my.equifax.com
+symbols = !@$*+-
