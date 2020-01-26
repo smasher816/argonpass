@@ -132,6 +132,38 @@ def updateSite(name):
     with open(config_file, 'w') as file:
         config.write(file)
 
+def main(config, site):
+    if not site:
+        if sys.stdin.isatty():
+            histfile = os.getenv('ARGONHIST')
+            if histfile:
+                session = PromptSession(history=FileHistory(histfile))
+            else:
+                session = PromptSession()
+
+            def validate_site(text):
+                return (text in config.sections())
+
+            site_completer = FuzzyWordCompleter(config.sections)
+            site_validator = Validator.from_callable(validate_site, error_message="Site not found", move_cursor_to_end=True)
+            site = session.prompt("Site: ",
+                               auto_suggest=AutoSuggestFromHistory(),
+                               completer=site_completer, complete_while_typing=True,
+                               validator=site_validator, validate_while_typing=False)
+        else:
+            parser.print_usage(sys.stderr)
+            sys.exit(1)
+
+    if config.has_section(site):
+        site = Site(site)
+        if sys.stdin.isatty():
+            password = prompt("Enter your master password: ", is_password=True)
+        else:
+            password = sys.stdin.readline().rstrip("\r\n")
+        print(site.getPassword(password))
+    else:
+        print("Site not found", file=sys.stderr)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("site", nargs='?')
@@ -191,33 +223,7 @@ if __name__ == "__main__":
         print("Threads: "+str(site.threads))
         sys.exit(0)
 
-    if not args.site:
-        if sys.stdin.isatty():
-            histfile = os.getenv('ARGONHIST')
-            if histfile:
-                session = PromptSession(history=FileHistory(histfile))
-            else:
-                session = PromptSession()
-
-            def validate_site(text):
-                return (text in config.sections())
-
-            site_completer = FuzzyWordCompleter(config.sections)
-            site_validator = Validator.from_callable(validate_site, error_message="Site not found", move_cursor_to_end=True)
-            args.site = session.prompt("Site: ",
-                               auto_suggest=AutoSuggestFromHistory(),
-                               completer=site_completer, complete_while_typing=True,
-                               validator=site_validator, validate_while_typing=False)
-        else:
-            parser.print_usage(sys.stderr)
-            sys.exit(1)
-
-    if config.has_section(args.site):
-        site = Site(args.site)
-        if sys.stdin.isatty():
-            password = prompt("Enter your master password: ", is_password=True)
-        else:
-            password = sys.stdin.readline().rstrip("\r\n")
-        print(site.getPassword(password))
-    else:
-        print("Site not found", file=sys.stderr)
+    try:
+        main(config, args.site)
+    except KeyboardInterrupt:
+        sys.exit(0)
