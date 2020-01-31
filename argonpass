@@ -131,8 +131,9 @@ def updateSite(name):
     config.set(name, "revision", str(revision+1))
     with open(config_file, 'w') as file:
         config.write(file)
+    return revision
 
-def main(config, site):
+def getSite(config, site):
     if not site:
         if sys.stdin.isatty():
             histfile = os.getenv('ARGONHIST')
@@ -156,22 +157,26 @@ def main(config, site):
 
     if config.has_section(site):
         site = Site(site)
-        if sys.stdin.isatty():
-            password = prompt("Enter your master password: ", is_password=True)
-        else:
-            password = sys.stdin.readline().rstrip("\r\n")
-        print(site.getPassword(password))
+        return site
     else:
         print("Site not found", file=sys.stderr)
+        return None
+
+def getPassword(site):
+    if sys.stdin.isatty():
+        password = prompt("Enter your master password: ", is_password=True)
+    else:
+        password = sys.stdin.readline().rstrip("\r\n")
+    print(site.getPassword(password))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("site", nargs='?')
     parser.add_argument("--config", default=os.path.expanduser(config_file))
     parser.add_argument("-l", "--list", action="store_true")
-    parser.add_argument("-u", "--user")
-    parser.add_argument("-w", "--website")
-    parser.add_argument("-i", "--info")
+    parser.add_argument("-u", "--user", nargs='?', const='')
+    parser.add_argument("-w", "--website", nargs='?', const='')
+    parser.add_argument("-i", "--info", nargs='?', const='')
     parser.add_argument("-n", "--new")
     parser.add_argument("-d", "--delete")
     parser.add_argument("-c", "--change")
@@ -185,16 +190,6 @@ if __name__ == "__main__":
             print(section)
         sys.exit(0)
 
-    if args.user:
-        site = Site(args.user)
-        print(site.username)
-        sys.exit(0)
-
-    if args.website:
-        site = Site(args.website)
-        print(site.url)
-        sys.exit(0)
-
     if args.new:
         createSite(args.new)
         sys.exit(0)
@@ -203,27 +198,41 @@ if __name__ == "__main__":
         removeSite(args.delete)
         sys.exit(0)
 
-    if args.change:
-        updateSite(args.change)
-        sys.exit(0)
-
-    if args.info:
-        site = Site(args.info)
-        if site.url:
-            print("Website: "+site.url)
-        print("Username: "+site.username)
-        print("")
-        print("Length: "+str(site.length))
-        print("Charset: "+str(site.charset))
-        if site.revision:
-            print("Revision: "+site.revision)
-        print("")
-        print("Time: "+str(site.time))
-        print("Memory: "+str(site.memory))
-        print("Threads: "+str(site.threads))
-        sys.exit(0)
-
     try:
-        main(config, args.site)
+        if args.user is not None:
+            site = getSite(config, args.user)
+            print(site.username)
+            sys.exit(0)
+
+        if args.website is not None:
+            site = getSite(config, args.website)
+            print(site.url)
+            sys.exit(0)
+
+        elif args.change is not None:
+            rev = updateSite(args.change)
+            print("Revision now %i".format(rev))
+            sys.exit(0)
+
+        elif args.info is not None:
+            site = getSite(config, args.info)
+            if site.url:
+                print("Website: "+site.url)
+            print("Username: "+site.username)
+            print("")
+            print("Length: "+str(site.length))
+            print("Charset: "+str(site.charset))
+            if site.revision:
+                print("Revision: "+site.revision)
+            print("")
+            print("Time: "+str(site.time))
+            print("Memory: "+str(site.memory))
+            print("Threads: "+str(site.threads))
+            sys.exit(0)
+
+        else:
+            site = getSite(config, args.site)
+            getPassword(site)
+
     except KeyboardInterrupt:
         sys.exit(0)
