@@ -11,6 +11,7 @@ import sys
 import getpass
 import configparser
 import os
+import paramiko
 
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.completion import FuzzyWordCompleter
@@ -20,6 +21,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 ARGON2_VERSION = argon2.__version__
 
+remote = None
 config_file = "~/.argonpass"
 config = configparser.ConfigParser({
     "website": "",
@@ -115,12 +117,12 @@ def createSite(name):
     inputOption(name, "username")
     inputOption(name, "charset")
     inputOption(name, "length")
-    with open(config_file, 'w') as file:
+    with openConfig(config_file, remote, 'w') as file:
         config.write(file)
 
 def removeSite(name):
     config.remove_section(name)
-    with open(config_file, 'w') as file:
+    with openConfig(config_file, remote, 'w') as file:
         config.write(file)
 
 def updateSite(name):
@@ -129,7 +131,7 @@ def updateSite(name):
     except:
         revision = 0
     config.set(name, "revision", str(revision+1))
-    with open(config_file, 'w') as file:
+    with openConfig(config_file, remote, 'w') as file:
         config.write(file)
     return revision
 
@@ -169,10 +171,32 @@ def getPassword(site):
         password = sys.stdin.readline().rstrip("\r\n")
     print(site.getPassword(password))
 
+def openConfig(path, remote=None, mode='r'):
+    if remote:
+        # Home expansion not supported. Assume that cwd will be home by default
+        path = path.replace("~/", "")
+
+        port = 22
+        if ':' in remote:
+            remote, port = remote.split(':', 1)
+        if '@' in remote:
+            user, remote = remote.split('@', 1)
+
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(hostname=remote, username=user, port=port,
+                    look_for_keys=True, allow_agent=True)
+        sftp = client.open_sftp()
+        return sftp.open(path, mode)
+    else:
+        return open(os.path.expanduser(path), mode)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("site", nargs='?')
-    parser.add_argument("--config", default=os.path.expanduser(config_file))
+    parser.add_argument("--config", default=config_file)
+    parser.add_argument("-r", "--remote", default=None)
     parser.add_argument("-l", "--list", action="store_true")
     parser.add_argument("-u", "--user", nargs='?', const='')
     parser.add_argument("-w", "--website", nargs='?', const='')
@@ -183,7 +207,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     config_file = args.config;
-    config.read(config_file)
+    remote = args.remote
+
+    try:
+        with openConfig(config_file, remote) as file:
+            config.read_file(file)
+    except Exception as e:
+        print(e)
+        print("Error loading config - {}".format(config_file), file=sys.stderr)
+        sys.exit(1)
 
     if args.list:
         for section in config.sections():
