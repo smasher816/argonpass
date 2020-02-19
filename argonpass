@@ -162,7 +162,7 @@ def getSite(config, site):
         return site
     else:
         print("Site not found", file=sys.stderr)
-        return None
+        sys.exit(1)
 
 def getPassword(site):
     if sys.stdin.isatty():
