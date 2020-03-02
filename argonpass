@@ -12,6 +12,7 @@ import getpass
 import configparser
 import os
 import paramiko
+import pyperclip
 
 from prompt_toolkit import PromptSession, prompt
 from prompt_toolkit.completion import FuzzyWordCompleter
@@ -21,8 +22,7 @@ from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 ARGON2_VERSION = argon2.__version__
 
-remote = None
-config_file = "~/.argonpass"
+args = {}
 config = configparser.ConfigParser({
     "website": "",
     "username": "",
@@ -117,12 +117,12 @@ def createSite(name):
     inputOption(name, "username")
     inputOption(name, "charset")
     inputOption(name, "length")
-    with openConfig(config_file, remote, 'w') as file:
+    with openConfig(args.config, args.remote, 'w') as file:
         config.write(file)
 
 def removeSite(name):
     config.remove_section(name)
-    with openConfig(config_file, remote, 'w') as file:
+    with openConfig(args.config, args.remote, 'w') as file:
         config.write(file)
 
 def updateSite(name):
@@ -131,7 +131,7 @@ def updateSite(name):
     except:
         revision = 0
     config.set(name, "revision", str(revision+1))
-    with openConfig(config_file, remote, 'w') as file:
+    with openConfig(args.config, args.remote, 'w') as file:
         config.write(file)
     return revision
 
@@ -169,7 +169,11 @@ def getPassword(site):
         password = prompt("Enter your master password: ", is_password=True)
     else:
         password = sys.stdin.readline().rstrip("\r\n")
-    print(site.getPassword(password))
+
+    sitepass = site.getPassword(password)
+    print(sitepass)
+    if args.clipboard:
+        pyperclip.copy(sitepass)
 
 def openConfig(path, remote=None, mode='r'):
     if remote:
@@ -195,7 +199,7 @@ def openConfig(path, remote=None, mode='r'):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("site", nargs='?')
-    parser.add_argument("--config", default=config_file)
+    parser.add_argument("--config", default='~/.argonpass')
     parser.add_argument("-r", "--remote", default=None)
     parser.add_argument("-l", "--list", action="store_true")
     parser.add_argument("-u", "--user", nargs='?', const='')
@@ -204,17 +208,15 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--new")
     parser.add_argument("-d", "--delete")
     parser.add_argument("-c", "--change")
+    parser.add_argument("-x", "--clipboard", action='store_true')
 
     args = parser.parse_args()
-    config_file = args.config;
-    remote = args.remote
 
     try:
-        with openConfig(config_file, remote) as file:
+        with openConfig(args.config, args.remote) as file:
             config.read_file(file)
     except Exception as e:
         print(e)
-        print("Error loading config - {}".format(config_file), file=sys.stderr)
         sys.exit(1)
 
     if args.list:
@@ -234,11 +236,15 @@ if __name__ == "__main__":
         if args.user is not None:
             site = getSite(config, args.user)
             print(site.username)
+            if args.clipboard:
+                pyperclip.copy(site.username)
             sys.exit(0)
 
         if args.website is not None:
             site = getSite(config, args.website)
             print(site.url)
+            if args.clipboard:
+                pyperclip.copy(site.url)
             sys.exit(0)
 
         elif args.change is not None:
