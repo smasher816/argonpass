@@ -170,10 +170,7 @@ def getPassword(site):
     else:
         password = sys.stdin.readline().rstrip("\r\n")
 
-    sitepass = site.getPassword(password)
-    print(sitepass)
-    if args.clipboard:
-        pyperclip.copy(sitepass)
+    return site.getPassword(password)
 
 def openConfig(path, remote=None, mode='r'):
     if remote:
@@ -202,12 +199,13 @@ if __name__ == "__main__":
     parser.add_argument("--config", default='~/.argonpass')
     parser.add_argument("-r", "--remote", default=None)
     parser.add_argument("-l", "--list", action="store_true")
-    parser.add_argument("-u", "--user", nargs='?', const='')
-    parser.add_argument("-w", "--website", nargs='?', const='')
-    parser.add_argument("-i", "--info", nargs='?', const='')
-    parser.add_argument("-n", "--new")
-    parser.add_argument("-d", "--delete")
-    parser.add_argument("-c", "--change")
+    parser.add_argument("-i", "--info", action="store_true")
+    parser.add_argument("-w", "--website", action="store_true")
+    parser.add_argument("-u", "--user", action="store_true")
+    parser.add_argument("-p", "--password", action="store_true")
+    parser.add_argument("-n", "--new", action="store_true")
+    parser.add_argument("-d", "--delete", action="store_true")
+    parser.add_argument("-c", "--change", action="store_true")
     parser.add_argument("-x", "--clipboard", action='store_true')
 
     args = parser.parse_args()
@@ -219,41 +217,32 @@ if __name__ == "__main__":
         print(e)
         sys.exit(1)
 
-    if args.list:
-        for section in config.sections():
-            print(section)
-        sys.exit(0)
-
-    if args.new:
-        createSite(args.new)
-        sys.exit(0)
-
-    if args.delete:
-        removeSite(args.delete)
-        sys.exit(0)
-
     try:
-        if args.user is not None:
-            site = getSite(config, args.user)
-            print(site.username)
-            if args.clipboard:
-                pyperclip.copy(site.username)
+        if args.list:
+            for section in config.sections():
+                print(section)
             sys.exit(0)
 
-        if args.website is not None:
-            site = getSite(config, args.website)
-            print(site.url)
-            if args.clipboard:
-                pyperclip.copy(site.url)
-            sys.exit(0)
+        if not args.site:
+            parser.print_usage()
+            sys.exit(1)
 
-        elif args.change is not None:
-            rev = updateSite(args.change)
+        # Changes
+        if args.new:
+            createSite(args.site)
+            sys.exit(0)
+        elif args.change:
+            rev = updateSite(args.site)
             print("Revision now %i".format(rev))
             sys.exit(0)
+        elif args.delete:
+            removeSite(args.site)
+            sys.exit(0)
 
-        elif args.info is not None:
-            site = getSite(config, args.info)
+        site = getSite(config, args.site)
+
+        # Queries
+        if args.info:
             if site.url:
                 print("Website: "+site.url)
             print("Username: "+site.username)
@@ -268,9 +257,23 @@ if __name__ == "__main__":
             print("Threads: "+str(site.threads))
             sys.exit(0)
 
-        else:
-            site = getSite(config, args.site)
-            getPassword(site)
+        if not args.info and not args.password and not args.user and not args.website:
+            args.password = True
+        if args.password:
+            sitepass = getPassword(site)
+
+        if args.website:
+            print(site.url)
+            if args.clipboard:
+                pyperclip.copy(site.url)
+        if args.user:
+            print(site.username)
+            if args.clipboard:
+                pyperclip.copy(site.username)
+        if sitepass:
+            print(sitepass)
+            if args.clipboard:
+                pyperclip.copy(sitepass)
 
     except KeyboardInterrupt:
         sys.exit(0)
