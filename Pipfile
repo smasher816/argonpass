@@ -8,7 +8,7 @@ verify_ssl = true
 [packages]
 argon2-cffi = "==16.0.0"
 prompt-toolkit = "==3.0.2"
-paramiko = "==2.7.1"
+paramiko = "==3.4.0"
 pyperclip  = "==1.7.0"
 
 [requires]
